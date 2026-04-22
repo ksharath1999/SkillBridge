@@ -1,13 +1,21 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker,Session
+from sqlalchemy.orm import sessionmaker, declarative_base
+import os
+from dotenv import load_dotenv
 
-DATABASE_URL = "sqlite:///./test.db"  # temporary (we’ll switch to Postgres later)
+load_dotenv()
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+)
 
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
+
 
 def get_db():
     db = SessionLocal()
