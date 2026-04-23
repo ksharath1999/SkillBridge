@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import os
 from dotenv import load_dotenv
@@ -111,7 +111,8 @@ def create_invite(
         batch_id=batch_id,
         token=token,
         created_by=user["user_id"],
-        expires_at=datetime.utcnow()
+        expires_at=datetime.utcnow() + timedelta(days=1),  # expiry added
+        used=False
     )
 
     db.add(invite)
@@ -132,6 +133,9 @@ def join_batch(
     if not invite or invite.used:
         raise HTTPException(status_code=400, detail="Invalid or used invite")
 
+    if invite.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invite expired")
+
     db.add(BatchStudent(
         batch_id=invite.batch_id,
         student_id=user["user_id"]
@@ -151,6 +155,10 @@ def create_session(
     db: Session = Depends(get_db),
     user=Depends(require_roles(["trainer"]))
 ):
+    batch = db.query(Batch).filter(Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
     session = DBSession(
         batch_id=batch_id,
         trainer_id=user["user_id"],
@@ -188,6 +196,15 @@ def mark_attendance(
     if not enrolled:
         raise HTTPException(status_code=403, detail="Not enrolled in this batch")
 
+    # prevent duplicate attendance
+    existing = db.query(Attendance).filter(
+        Attendance.session_id == session_id,
+        Attendance.student_id == user["user_id"]
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Already marked")
+
     attendance = Attendance(
         session_id=session_id,
         student_id=user["user_id"],
@@ -208,7 +225,6 @@ def get_attendance(
     user=Depends(require_roles(["trainer"]))
 ):
     records = db.query(Attendance).filter(Attendance.session_id == session_id).all()
-
     return records
 
 

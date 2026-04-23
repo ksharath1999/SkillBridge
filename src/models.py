@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Date, Time
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Date, Time, UniqueConstraint
 from datetime import datetime
 from src.database import Base
 
@@ -31,13 +30,6 @@ class Batch(Base):
     name = Column(String)
     institution_id = Column(Integer, ForeignKey("institutions.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class BatchTrainer(Base):
-    __tablename__ = "batch_trainers"
-
-    batch_id = Column(Integer, ForeignKey("batches.id"), primary_key=True)
-    trainer_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
 
 
 class BatchStudent(Base):
@@ -79,3 +71,7 @@ class Attendance(Base):
     student_id = Column(Integer, ForeignKey("users.id"))
     status = Column(String)
     marked_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("session_id", "student_id", name="unique_attendance"),
+    )

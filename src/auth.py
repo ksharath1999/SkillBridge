@@ -8,7 +8,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "secret")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY not set")
+
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -44,7 +47,8 @@ def create_monitoring_token(data: dict):
 def decode_token(token: str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
+    except JWTError as e:
+        print("JWT ERROR:", e)
         return None
 
 
@@ -53,6 +57,10 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+    # 🚫 block monitoring tokens here
+    if payload.get("scope") == "monitoring":
+        raise HTTPException(status_code=401, detail="Invalid token type")
 
     return payload
 
