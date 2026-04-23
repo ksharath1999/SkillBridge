@@ -10,8 +10,7 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is missing (check Railway env variables)")
-
+    print("WARNING: DATABASE_URL missing")
 
 # ---------------- ENGINE ----------------
 # Works for both:
