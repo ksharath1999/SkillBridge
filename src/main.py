@@ -6,7 +6,17 @@ import os
 from dotenv import load_dotenv
 
 from src.database import engine, get_db
-from src.models import Base, User, Batch, Session as DBSession, Attendance, BatchInvite, BatchStudent,Institution
+import src.models  # 🔴 IMPORTANT: ensures all models are registered
+from src.models import (
+    Base,
+    User,
+    Batch,
+    Session as DBSession,
+    Attendance,
+    BatchInvite,
+    BatchStudent,
+    Institution
+)
 from src.schemas import UserCreate, UserLogin
 from src.auth import (
     hash_password,
@@ -22,6 +32,7 @@ load_dotenv()
 
 app = FastAPI()
 
+# 🔥 CREATE TABLES (FIX)
 Base.metadata.create_all(bind=engine)
 
 MONITORING_API_KEY = os.getenv("MONITORING_API_KEY", "12345")
@@ -33,46 +44,35 @@ def root():
     return {"message": "SkillBridge API running 🚀"}
 
 
+# ---------------- AUTH ----------------
 @app.post("/auth/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
 
-    # Check duplicate email
     existing = db.query(User).filter(User.email == user.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # ---------------- HANDLE INSTITUTION ----------------
     if user.role == "institution":
         inst = Institution(name=user.name)
         db.add(inst)
         db.commit()
         db.refresh(inst)
-
         institution_id = inst.id
 
     else:
-        # For trainer/student → institution_id must be provided
         if user.role in ["trainer", "student"]:
             if not user.institution_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail="institution_id required for this role"
-                )
+                raise HTTPException(status_code=400, detail="institution_id required")
 
-            # Check if institution exists
             inst = db.query(Institution).filter(
                 Institution.id == user.institution_id
             ).first()
 
             if not inst:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid institution_id"
-                )
+                raise HTTPException(status_code=400, detail="Invalid institution_id")
 
         institution_id = user.institution_id
 
-    # ---------------- CREATE USER ----------------
     new_user = User(
         name=user.name,
         email=user.email,
@@ -92,6 +92,7 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     })
 
     return {"access_token": token}
+
 
 @app.post("/auth/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
@@ -142,7 +143,7 @@ def create_invite(
         batch_id=batch_id,
         token=token,
         created_by=user["user_id"],
-        expires_at=datetime.utcnow() + timedelta(days=1),  # expiry added
+        expires_at=datetime.utcnow() + timedelta(days=1),
         used=False
     )
 
@@ -227,7 +228,6 @@ def mark_attendance(
     if not enrolled:
         raise HTTPException(status_code=403, detail="Not enrolled in this batch")
 
-    # prevent duplicate attendance
     existing = db.query(Attendance).filter(
         Attendance.session_id == session_id,
         Attendance.student_id == user["user_id"]
@@ -246,37 +246,6 @@ def mark_attendance(
     db.commit()
 
     return {"message": "Attendance marked"}
-
-
-# ---------------- TRAINER VIEW ----------------
-@app.get("/sessions/{session_id}/attendance")
-def get_attendance(
-    session_id: int,
-    db: Session = Depends(get_db),
-    user=Depends(require_roles(["trainer"]))
-):
-    records = db.query(Attendance).filter(Attendance.session_id == session_id).all()
-    return records
-
-
-# ---------------- MONITORING TOKEN ----------------
-@app.post("/auth/monitoring-token")
-def get_monitoring_token(
-    api_key: str,
-    user=Depends(get_current_user)
-):
-    if user["role"] != "monitoring_officer":
-        raise HTTPException(status_code=403, detail="Not allowed")
-
-    if api_key != MONITORING_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-
-    token = create_monitoring_token({
-        "user_id": user["user_id"],
-        "role": user["role"]
-    })
-
-    return {"monitoring_token": token}
 
 
 # ---------------- MONITORING ----------------
@@ -310,17 +279,6 @@ def batch_summary(
         "total_sessions": len(sessions),
         "attendance_records": len(attendance)
     }
-
-
-@app.get("/institutions/{inst_id}/summary")
-def institution_summary(
-    inst_id: int,
-    db: Session = Depends(get_db),
-    user=Depends(require_roles(["programme_manager"]))
-):
-    batches = db.query(Batch).filter(Batch.institution_id == inst_id).all()
-
-    return {"total_batches": len(batches)}
 
 
 @app.get("/programme/summary")

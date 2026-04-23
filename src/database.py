@@ -3,19 +3,12 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Get DB URL from .env
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    print("WARNING: DATABASE_URL missing")
-
-# ---------------- ENGINE ----------------
-# Works for both:
-# - SQLite (local dev)
-# - PostgreSQL (Neon / production)
+    raise ValueError("DATABASE_URL not set")
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
@@ -25,23 +18,18 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine = create_engine(
         DATABASE_URL,
-        pool_pre_ping=True  # helps avoid dropped connections (important for Neon)
+        pool_pre_ping=True
     )
 
-
-# ---------------- SESSION ----------------
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
 
-
-# ---------------- BASE ----------------
 Base = declarative_base()
 
 
-# ---------------- DEPENDENCY ----------------
 def get_db():
     db = SessionLocal()
     try:
