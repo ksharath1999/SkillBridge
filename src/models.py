@@ -75,3 +75,9 @@ class Attendance(Base):
     __table_args__ = (
         UniqueConstraint("session_id", "student_id", name="unique_attendance"),
     )
+
+class BatchTrainer(Base):
+    __tablename__ = "batch_trainers"
+
+    batch_id = Column(Integer, ForeignKey("batches.id"), primary_key=True)
+    trainer_id = Column(Integer, ForeignKey("users.id"), primary_key=True)

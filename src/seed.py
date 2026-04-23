@@ -1,126 +1,197 @@
+from datetime import datetime, date, time
+from sqlalchemy.orm import Session
 from src.database import SessionLocal
-from src.models import User, Batch, Session, Attendance, BatchStudent
+from src.models import (
+    User,
+    Institution,
+    Batch,
+    BatchTrainer,
+    BatchStudent,
+    Session,
+    Attendance
+)
 from src.auth import hash_password
-from datetime import datetime
+import random
 
-db = SessionLocal()
+db: Session = SessionLocal()
 
-try:
-    # ---------------- INSTITUTION ----------------
-    institution = User(
-        name="Institution1",
-        email="inst1@test.com",
-        hashed_password=hash_password("1234"),
-        role="institution"
-    )
-    db.add(institution)
+
+# ---------- HELPERS ----------
+
+def get_or_create(model, filters: dict, defaults: dict = {}):
+    instance = db.query(model).filter_by(**filters).first()
+    if instance:
+        return instance
+
+    params = {**filters, **defaults}
+    instance = model(**params)
+    db.add(instance)
     db.commit()
-    db.refresh(institution)
+    db.refresh(instance)
+    return instance
 
-    institution_id = institution.id
 
-    # ---------------- PROGRAMME MANAGER ----------------
-    pm = User(
-        name="Programme Manager",
-        email="pm@test.com",
-        hashed_password=hash_password("1234"),
-        role="programme_manager"
+# ---------- MAIN SEED ----------
+
+def main():
+    print("🌱 Seeding database...")
+
+    # ---------- Institutions ----------
+    inst1 = get_or_create(Institution, {"name": "Greenfield Skill Institute"})
+    inst2 = get_or_create(Institution, {"name": "Sunrise Technical Academy"})
+
+    # ---------- Core Users ----------
+    get_or_create(User,
+        {"email": "admin.greenfield@skillbridge.com"},
+        {
+            "name": "Admin Greenfield",
+            "hashed_password": hash_password("1234"),
+            "role": "institution"
+        }
     )
 
-    # ---------------- MONITORING OFFICER ----------------
-    mo = User(
-        name="Monitoring Officer",
-        email="mo@test.com",
-        hashed_password=hash_password("1234"),
-        role="monitoring_officer"
+    get_or_create(User,
+        {"email": "rakesh.menon@skillbridge.com"},
+        {
+            "name": "Rakesh Menon",
+            "hashed_password": hash_password("1234"),
+            "role": "programme_manager"
+        }
     )
 
-    db.add_all([pm, mo])
-    db.commit()
+    get_or_create(User,
+        {"email": "farah.khan@skillbridge.com"},
+        {
+            "name": "Farah Khan",
+            "hashed_password": hash_password("1234"),
+            "role": "monitoring_officer"
+        }
+    )
 
-    # ---------------- TRAINERS ----------------
+    # ---------- Trainers ----------
+    trainer_data = [
+        ("Amit Sharma", "amit.sharma@skillbridge.com", inst1.id),
+        ("Neha Verma", "neha.verma@skillbridge.com", inst1.id),
+        ("Rahul Nair", "rahul.nair@skillbridge.com", inst2.id),
+        ("Priya Iyer", "priya.iyer@skillbridge.com", inst2.id),
+    ]
+
     trainers = []
-    for i in range(1, 5):
-        trainer = User(
-            name=f"Trainer{i}",
-            email=f"trainer{i}@test.com",
-            hashed_password=hash_password("1234"),
-            role="trainer",
-            institution_id=institution_id
+    for name, email, inst_id in trainer_data:
+        trainers.append(
+            get_or_create(User,
+                {"email": email},
+                {
+                    "name": name,
+                    "hashed_password": hash_password("1234"),
+                    "role": "trainer",
+                    "institution_id": inst_id
+                }
+            )
         )
-        trainers.append(trainer)
 
-    db.add_all(trainers)
-    db.commit()
+    # ---------- Students ----------
+    student_names = [
+        "Arjun Mehta", "Sneha Kapoor", "Rohit Singh", "Ananya Das", "Vikram Patel",
+        "Kiran Kumar", "Pooja Reddy", "Aditya Joshi", "Meera Nair", "Sahil Khan",
+        "Divya Menon", "Karthik Raj", "Nisha Thomas", "Varun Gupta", "Aisha Ali"
+    ]
 
-    # ---------------- STUDENTS ----------------
     students = []
-    for i in range(1, 16):
-        student = User(
-            name=f"Student{i}",
-            email=f"student{i}@test.com",
-            hashed_password=hash_password("1234"),
-            role="student",
-            institution_id=institution_id
+    for i, name in enumerate(student_names):
+        email = name.lower().replace(" ", ".") + "@student.com"
+        inst_id = inst1.id if i < 10 else inst2.id
+
+        students.append(
+            get_or_create(User,
+                {"email": email},
+                {
+                    "name": name,
+                    "hashed_password": hash_password("1234"),
+                    "role": "student",
+                    "institution_id": inst_id
+                }
+            )
         )
-        students.append(student)
 
-    db.add_all(students)
+    # ---------- Batches ----------
+    batch1 = get_or_create(Batch, {"name": "Batch Alpha"}, {"institution_id": inst1.id})
+    batch2 = get_or_create(Batch, {"name": "Batch Beta"}, {"institution_id": inst1.id})
+    batch3 = get_or_create(Batch, {"name": "Batch Gamma"}, {"institution_id": inst2.id})
+
+    batches = [batch1, batch2, batch3]
+
+    # ---------- Assign Trainers ----------
+    for batch, trainer in zip(batches, trainers):
+        if not db.query(BatchTrainer).filter_by(
+            batch_id=batch.id, trainer_id=trainer.id
+        ).first():
+            db.add(BatchTrainer(batch_id=batch.id, trainer_id=trainer.id))
+
+    # ---------- Assign Students ----------
+    for i, batch in enumerate(batches):
+        batch_students = students[i*5:(i+1)*5]
+
+        for student in batch_students:
+            if not db.query(BatchStudent).filter_by(
+                batch_id=batch.id, student_id=student.id
+            ).first():
+                db.add(BatchStudent(batch_id=batch.id, student_id=student.id))
+
     db.commit()
 
-    # ---------------- BATCHES ----------------
-    batches = []
-    for i in range(1, 4):
-        batch = Batch(
-            name=f"Batch{i}",
-            institution_id=institution_id
-        )
-        batches.append(batch)
+    # ---------- Sessions ----------
+    session_titles = [
+        "Python Basics", "Data Structures", "Web Development",
+        "Database Fundamentals", "APIs with FastAPI",
+        "Authentication Systems", "Testing & Debugging", "Project Review"
+    ]
 
-    db.add_all(batches)
-    db.commit()
-
-    # ---------------- ASSIGN STUDENTS TO BATCH 1 ----------------
-    for student in students:
-        db.add(BatchStudent(
-            batch_id=batches[0].id,
-            student_id=student.id
-        ))
-
-    db.commit()
-
-    # ---------------- SESSIONS ----------------
     sessions = []
-    for i in range(1, 9):
+    for i, title in enumerate(session_titles):
+        batch = batches[i % 3]
+
+        existing = db.query(Session).filter_by(title=title).first()
+        if existing:
+            sessions.append(existing)
+            continue
+
         session = Session(
-            batch_id=batches[0].id,
-            trainer_id=trainers[0].id,
-            title=f"Session{i}",
-            date=datetime.utcnow().date(),
-            start_time=datetime.utcnow().time(),
-            end_time=datetime.utcnow().time()
+            batch_id=batch.id,
+            trainer_id=trainers[i % 3].id,
+            title=title,
+            date=date.today(),
+            start_time=time(10, 0),
+            end_time=time(11, 0)
         )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
         sessions.append(session)
 
-    db.add_all(sessions)
-    db.commit()
+    # ---------- Attendance ----------
+    statuses = ["present", "absent", "late"]
 
-    # ---------------- ATTENDANCE ----------------
     for session in sessions:
-        for student in students[:5]:
-            db.add(Attendance(
+        batch_students = db.query(BatchStudent).filter_by(
+            batch_id=session.batch_id
+        ).all()
+
+        for bs in batch_students:
+            if not db.query(Attendance).filter_by(
                 session_id=session.id,
-                student_id=student.id,
-                status="present"
-            ))
+                student_id=bs.student_id
+            ).first():
+                db.add(Attendance(
+                    session_id=session.id,
+                    student_id=bs.student_id,
+                    status=random.choice(statuses)
+                ))
 
     db.commit()
 
-    print("✅ Seed data inserted successfully!")
+    print("✅ Seeding completed successfully!")
 
-except Exception as e:
-    db.rollback()
-    print("❌ Error during seeding:", e)
 
-finally:
-    db.close()
+if __name__ == "__main__":
+    main()
