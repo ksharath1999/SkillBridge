@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 from src.database import engine, get_db
-from src.models import Base, User, Batch, Session as DBSession, Attendance, BatchInvite, BatchStudent
+from src.models import Base, User, Batch, Session as DBSession, Attendance, BatchInvite, BatchStudent,Institution
 from src.schemas import UserCreate, UserLogin
 from src.auth import (
     hash_password,
@@ -33,20 +33,52 @@ def root():
     return {"message": "SkillBridge API running 🚀"}
 
 
-# ---------------- AUTH ----------------
 @app.post("/auth/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
 
+    # Check duplicate email
     existing = db.query(User).filter(User.email == user.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    # ---------------- HANDLE INSTITUTION ----------------
+    if user.role == "institution":
+        inst = Institution(name=user.name)
+        db.add(inst)
+        db.commit()
+        db.refresh(inst)
+
+        institution_id = inst.id
+
+    else:
+        # For trainer/student → institution_id must be provided
+        if user.role in ["trainer", "student"]:
+            if not user.institution_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="institution_id required for this role"
+                )
+
+            # Check if institution exists
+            inst = db.query(Institution).filter(
+                Institution.id == user.institution_id
+            ).first()
+
+            if not inst:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid institution_id"
+                )
+
+        institution_id = user.institution_id
+
+    # ---------------- CREATE USER ----------------
     new_user = User(
         name=user.name,
         email=user.email,
         hashed_password=hash_password(user.password),
         role=user.role,
-        institution_id=user.institution_id
+        institution_id=institution_id
     )
 
     db.add(new_user)
@@ -60,7 +92,6 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     })
 
     return {"access_token": token}
-
 
 @app.post("/auth/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
