@@ -7,9 +7,7 @@ A role-based training management backend built with **FastAPI**, **PostgreSQL (N
 # 🌐 Live API
 
 Base URL:
-https://your-deployed-url.onrender.com
-
-> Replace with your actual deployed URL
+https://skillbridge-xtry.onrender.com/docs
 
 ---
 
@@ -210,10 +208,10 @@ Uses API key-based authentication instead of JWT.
 
 # 📞 CONTACT
 
-Name: Your Name  
-Email: your@email.com  
-Phone: your phone number  
-GitHub: your github link  
+Name: K SHARATH  
+Email: ksharath@depaul.edu.in  
+Phone: 8089996858 
+GitHub: https://github.com/ksharath1999 
 
 Most challenging part:  
 Debugging database schema sync and ensuring tables were created correctly before seeding.
