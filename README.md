@@ -7,7 +7,7 @@ A role-based training management backend built with FastAPI, PostgreSQL (Neon), 
 # 🌐 Live API
 
 Base URL:  
-https://skillbridge-xtry.onrender.com/docs
+https://skillbridge-xtry.onrender.com
 
 ### Deployment Notes
 - Backend deployed on Render
@@ -86,7 +86,7 @@ curl -X POST https://skillbridge-xtry.onrender.com/auth/login \
 -H "Content-Type: application/json" \
 -d '{"email":"student0@test.com","password":"1234"}'
 📦 Create Batch
-curl -X POST "http://localhost:8000/batches?name=BatchX" \
+curl -X POST "https://skillbridge-xtry.onrender.com/batches?name=BatchX" \
 -H "Authorization: Bearer <token>"
 🎟 Create Invite
 curl -X POST https://skillbridge-xtry.onrender.com/batches/1/invite \
@@ -96,28 +96,30 @@ curl -X POST "https://skillbridge-xtry.onrender.com/batches/join?token=INVITE_TO
 -H "Authorization: Bearer <student_token>"
 
 📅 Create Session
-curl -X POST "http://localhost:8000/sessions?batch_id=1&title=Session1" \
+curl -X POST "https://skillbridge-xtry.onrender.com/sessions?batch_id=1&title=Session1" \
 -H "Authorization: Bearer <trainer_token>"
 
 🧾 Mark Attendance
-curl -X POST "http://localhost:8000/attendance/mark?session_id=1&status=present" \
+curl -X POST "https://skillbridge-xtry.onrender.com/attendance/mark?session_id=1&status=present" \
 -H "Authorization: Bearer <student_token>"
+
 👁 Monitoring (GET only)
-curl http://localhost:8000/monitoring/attendance \
+curl https://skillbridge-xtry.onrender.com/monitoring/attendance \
 -H "x-api-key: 12345"
 
 ❌ Monitoring POST (Expected 405)
-curl -X POST http://localhost:8000/monitoring/attendance
+curl -X POST https://skillbridge-xtry.onrender.com/monitoring/attendance
 
 📊 Batch Summary
-curl http://localhost:8000/batches/1/summary \
+curl https://skillbridge-xtry.onrender.com/batches/1/summary \
 -H "Authorization: Bearer <institution_token>"
 
 📊 Programme Summary
-curl http://localhost:8000/programme/summary \
+curl https://skillbridge-xtry.onrender.com/programme/summary \
 -H "Authorization: Bearer <programme_manager_token>"
+```
 
-🧠 Schema Decisions
+# 🧠 Schema Decisions
 batch_students
 
 Handles student enrollment into batches.
@@ -141,7 +143,7 @@ Separate authentication flow
 401 → missing/invalid token
 405 → invalid method
 
-🧪 Tests
+# 🧪 Tests
 python -m pytest
 
 ✔ 5 required tests implemented
@@ -159,13 +161,13 @@ Seed script
 Deployment
 Tests
 
-⚠️ Partial / Simplifications
+# ⚠️ Partial / Simplifications
 
 No Alembic migrations
 Minimal validation schemas
 No pagination/filtering
 
-💡 What I Would Do Differently
+# 💡 What I Would Do Differently
 
 Add Alembic migrations
 Improve validation schemas
@@ -173,19 +175,8 @@ Add batch-trainer mapping
 Increase test coverage
 Add analytics endpoints
 
-🧩 Honest Note
+# 🧩 Honest Note
 
 The most challenging part was debugging database schema synchronization.
 At multiple points, models were updated but tables were not recreated, causing runtime errors.
 This was resolved by enforcing proper table creation before seeding and ensuring consistent DB usage across environments.
-
-📞 CONTACT
-
-Name: Your Name
-Email: your@email.com
-
-Phone: your phone number
-GitHub: your GitHub profile
-
-Most challenging part:
-Debugging database schema sync issues and ensuring consistent behavior across local and deployed environments.
